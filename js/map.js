@@ -227,6 +227,7 @@ async function carregarLinha() {
           tripHeadsign: trip.trip_headsign,
           directionId: trip.direction_id,
           routeShortName: numeroLinha
+                      routeLongName: route.route_long_name,
         };
       }
     });
