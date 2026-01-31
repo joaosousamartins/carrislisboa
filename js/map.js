@@ -162,31 +162,6 @@ function handlePatternClick(shapeId) {
 function handleDownloadGPX(shapeId) {
   const pattern = allPatterns.find(p => p.shapeId === shapeId);
   if (pattern && pattern.coordinates) {
-    // Find closest stop to a coordinate
-function findClosestStop(coord, stops) {
-    let minDistance = Infinity;
-    let closestStop = null;
-    
-    stops.forEach(stop => {
-        const stopLat = parseFloat(stop.stop_lat);
-        const stopLon = parseFloat(stop.stop_lon);
-        
-        // Simple Euclidean distance (good enough for small distances)
-        const distance = Math.sqrt(
-            Math.pow(coord[0] - stopLat, 2) + 
-            Math.pow(coord[1] - stopLon, 2)
-        );
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestStop = stop;
-        }
-    });
-    
-    return closestStop;
-}
-
-
     const filename = pattern.headsign || `Linha_${pattern.routeShortName}_${shapeId}`;
     downloadGPX(pattern.coordinates, filename.replace(/[^a-z0-9\-_\.]/gi, '_'));
   }
@@ -217,17 +192,15 @@ async function carregarLinha() {
   }
   
   try {
-    const [routconst [routesText, tripsText, shapesText, stopsText] = await Promise.all([
+    const [routesText, tripsText, shapesText] = await Promise.all([
       fetch('gtfs/routes.txt').then(r => r.text()),
       fetch('gtfs/trips.txt').then(r => r.text()),
-      fetch('gtfs/shapes.txt').then(r => r.text),
-                  fetch('gtfs/stops.txt').then(r => r.text())
+      fetch('gtfs/shapes.txt').then(r => r.text())
     ]);
     
     const routes = parseCSV(routesText);
     const trips = parseCSV(tripsText);
     const shapes = parseCSV(shapesText);
-            const stops = parseCSV(stopsText);
     
     const route = routes.find(r => r.route_short_name === numeroLinha);
     
@@ -267,10 +240,7 @@ async function carregarLinha() {
       
       return {
         ...shapeInfo,
-        headsign: destinationStop ? destinationStop.stop_name : shapeInfo.tripHeadsign,                
-        // Find last stop
-        const lastCoord = shapePoints[shapePoints.length - 1];
-        const destinationStop = lastCoord ? findClosestStop(lastCoord, stops) : null;
+        headsign: shapeInfo.tripHeadsign,
         coordinates: shapePoints
       };
     }).filter(p => p.coordinates.length > 0);
