@@ -103,8 +103,7 @@ function renderPatterns() {
   container.innerHTML = allPatterns.map(pattern => {
     const isSelected = pattern.shapeId === selectedPatternId;
     const lineName = pattern.routeShortName ? `Linha ${pattern.routeShortName} ${pattern.routeLongName || ''}` : 'Linha';
-    const destination = pattern.headsign ? `${pattern.routeShortName} - ${pattern.headsign}` : `${pattern.routeShortName || ''} - Sentido ${pattern.directionId === '0' ? 'Ida' : 'Volta'}`;    
-    return `
+    const destination = pattern.headsign ? `${pattern.routeShortName} - ${pattern.headsign}` : `${pattern.routeShortName || ''} - Direção ${pattern.directionId === '0' ? '1' : '2'}`;    return `
       <div 
         class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden $
           isSelected 
