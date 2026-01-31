@@ -1,4 +1,4 @@
-// Initialize map centered on Lisbon
+// Initialize map
 const map = L.map('map').setView([38.72, -9.14], 12);
 
 // Add OpenStreetMap tiles
@@ -6,8 +6,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-// Store current route layers
+// State variables
 let routeLayers = [];
+let allPatterns = [];
+let selectedPatternId = null;
 
 // Parse CSV text into array of objects
 function parseCSV(text) {
@@ -22,6 +24,130 @@ function parseCSV(text) {
     });
     return obj;
   });
+}
+
+// Generate GPX content from coordinates
+function generateGPX(coords, name) {
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  gpx += '<gpx version="1.1" creator="CarrisLisboa" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  gpx += `  <trk>\n    <name>${name}</name>\n    <trkseg>\n`;
+  
+  coords.forEach(coord => {
+    gpx += `      <trkpt lat="${coord[0]}" lon="${coord[1]}"></trkpt>\n`;
+  });
+  
+  gpx += '    </trkseg>\n  </trk>\n</gpx>';
+  return gpx;
+}
+
+// Download GPX file
+function downloadGPX(coords, filename) {
+  const gpxContent = generateGPX(coords, filename);
+  const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Render pattern cards
+function renderPatterns() {
+  const container = document.getElementById('patterns-container');
+  
+  if (allPatterns.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = allPatterns.map(pattern => {
+    const isSelected = pattern.shapeId === selectedPatternId;
+    const destination = pattern.headsign || `Sentido ${pattern.directionId === '0' ? 'Ida' : 'Volta'}`;
+    
+    return `
+      <div 
+        class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden ${
+          isSelected 
+            ? 'bg-red-50 border-red-500 shadow-md' 
+            : 'bg-white border-gray-200 hover:shadow-lg hover:border-red-400'
+        }"
+        data-shape-id="${pattern.shapeId}"
+      >
+        <div class="p-5">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="flex-grow">
+              <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">Destino</p>
+              <p class="text-lg font-bold transition-colors ${
+                isSelected ? 'text-red-800' : 'text-gray-800 group-hover:text-red-700'
+              }">
+                ${destination}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <button 
+                class="download-gpx-btn flex-1 sm:flex-none flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                onclick="event.stopPropagation(); handleDownloadGPX('${pattern.shapeId}')"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Download GPX</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Add click listeners to pattern cards
+  container.querySelectorAll('.pattern-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const shapeId = card.dataset.shapeId;
+      handlePatternClick(shapeId);
+    });
+  });
+}
+
+// Handle pattern card click
+function handlePatternClick(shapeId) {
+  selectedPatternId = shapeId;
+  renderPatterns();
+  
+  const pattern = allPatterns.find(p => p.shapeId === shapeId);
+  if (pattern && pattern.coordinates) {
+    drawRoute(pattern.coordinates, '#DC2626');
+  }
+}
+
+// Handle GPX download
+function handleDownloadGPX(shapeId) {
+  const pattern = allPatterns.find(p => p.shapeId === shapeId);
+  if (pattern && pattern.coordinates) {
+    const filename = pattern.headsign || `Linha_${pattern.routeShortName}_${shapeId}`;
+    downloadGPX(pattern.coordinates, filename.replace(/[^a-z0-9\-_\.]/gi, '_'));
+  }
+}
+
+// Draw route on map
+function drawRoute(coordinates, color = '#DC2626') {
+  // Clear existing routes
+  routeLayers.forEach(layer => map.removeLayer(layer));
+  routeLayers = [];
+  
+  // Draw new route
+  const polyline = L.polyline(coordinates, {
+    color: color,
+    weight: 4,
+    opacity: 0.7
+  }).addTo(map);
+  
+  routeLayers.push(polyline);
+  map.fitBounds(polyline.getBounds());
 }
 
 // Main search function
@@ -46,11 +172,13 @@ async function carregarLinha() {
     const trips = parseCSV(tripsText);
     const shapes = parseCSV(shapesText);
     
-    // Find route by route_short_name
+    // Find route
     const route = routes.find(r => r.route_short_name === numeroLinha);
     
     if (!route) {
       alert(`Linha ${numeroLinha} não encontrada`);
+      allPatterns = [];
+      renderPatterns();
       return;
     }
     
@@ -58,52 +186,72 @@ async function carregarLinha() {
     const routeTrips = trips.filter(t => t.route_id === route.route_id);
     
     if (routeTrips.length === 0) {
-      alert('Nenhuma viagem encontrada para esta linha');
+      alert('Nenhuma viagem encontrada');
+      allPatterns = [];
+      renderPatterns();
       return;
     }
     
-    // Clear existing routes
-    routeLayers.forEach(layer => map.removeLayer(layer));
-    routeLayers = [];
+    // Group by shape_id and get unique shapes with trip info
+    const uniqueShapes = {};
+    routeTrips.forEach(trip => {
+      if (trip.shape_id && !uniqueShapes[trip.shape_id]) {
+        uniqueShapes[trip.shape_id] = {
+          shapeId: trip.shape_id,
+          tripHeadsign: trip.trip_headsign,
+          directionId: trip.direction_id,
+          routeShortName: numeroLinha
+        };
+      }
+    });
     
-    // Group trips by shape_id to show unique routes
-    const uniqueShapes = [...new Set(routeTrips.map(t => t.shape_id))].filter(s => s);
+    // Load shape coordinates for each unique shape
+    allPatterns = Object.values(uniqueShapes).map(shapeInfo => {
+      const shapePoints = shapes
+        .filter(s => s.shape_id === shapeInfo.shapeId)
+        .sort((a, b) => parseInt(a.shape_pt_sequence) - parseInt(b.shape_pt_sequence))
+        .map(s => [parseFloat(s.shape_pt_lat), parseFloat(s.shape_pt_lon)]);
+      
+      return {
+        ...shapeInfo,
+        headsign: shapeInfo.tripHeadsign,
+        coordinates: shapePoints
+      };
+    }).filter(p => p.coordinates.length > 0);
     
-    if (uniqueShapes.length === 0) {
+    if (allPatterns.length === 0) {
       alert('Nenhum percurso encontrado');
       return;
     }
     
-    // Draw each unique shape
+    // Clear selection
+    selectedPatternId = null;
+    
+    // Render pattern cards
+    renderPatterns();
+    
+    // Draw all routes on map
+    routeLayers.forEach(layer => map.removeLayer(layer));
+    routeLayers = [];
+    
     const colors = ['#DC2626', '#2563EB', '#16A34A', '#9333EA', '#EA580C'];
     let allBounds = [];
     
-    uniqueShapes.forEach((shapeId, index) => {
-      // Get all points for this shape
-      const shapePoints = shapes
-        .filter(s => s.shape_id === shapeId)
-        .sort((a, b) => parseInt(a.shape_pt_sequence) - parseInt(b.shape_pt_sequence))
-        .map(s => [parseFloat(s.shape_pt_lat), parseFloat(s.shape_pt_lon)]);
+    allPatterns.forEach((pattern, index) => {
+      const color = colors[index % colors.length];
+      const polyline = L.polyline(pattern.coordinates, {
+        color: color,
+        weight: 4,
+        opacity: 0.7
+      }).addTo(map);
       
-      if (shapePoints.length > 0) {
-        const color = colors[index % colors.length];
-        const polyline = L.polyline(shapePoints, {
-          color: color,
-          weight: 4,
-          opacity: 0.7
-        }).addTo(map);
-        
-        routeLayers.push(polyline);
-        allBounds = allBounds.concat(shapePoints);
-      }
+      routeLayers.push(polyline);
+      allBounds = allBounds.concat(pattern.coordinates);
     });
     
-    // Fit map to show all routes
     if (allBounds.length > 0) {
       map.fitBounds(allBounds);
     }
-    
-    console.log(`Linha ${numeroLinha}: ${uniqueShapes.length} percurso(s) encontrado(s)`);
     
   } catch (error) {
     console.error('Erro:', error);
