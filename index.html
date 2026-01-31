@@ -69,6 +69,18 @@
         <!-- Map Container -->
         <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <div class="relative h-[500px] w-full">
+                        <div class="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+              <button id="street-layer-button" class="flex items-center gap-2 p-2 rounded-lg shadow-lg bg-red-600 text-white" title="Mapa">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13v-6m0-6V4m0 6L21 7v10l-6-3m6 3V7" />
+                </svg>
+              </button>
+              <button id="satellite-layer-button" class="flex items-center gap-2 p-2 rounded-lg shadow-lg bg-white text-gray-700 hover:bg-gray-100" title="Satélite">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h1a2 2 0 002-2v-1a2 2 0 012-2h1.945M7.8 14.56l.245.245a.5.5 0 00.707 0l.245-.245M15.8 14.56l.245.245a.5.5 0 00.707 0l.245-.245M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                </svg>
+              </button>
+            </div>
             <div id="map" class="h-full w-full"></div>
           </div>
         </div>
