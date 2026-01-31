@@ -104,8 +104,7 @@ function renderPatterns() {
     const isSelected = pattern.shapeId === selectedPatternId;
     const lineName = pattern.routeShortName ? `Linha ${pattern.routeShortName} ${pattern.routeLongName || ''}` : 'Linha';
     const destination = pattern.headsign ? `${pattern.routeShortName} - ${pattern.headsign}` : `${pattern.routeShortName || ''} - Direção ${pattern.directionId === '0' ? '1' : '2'}`;    return `
-      <div 
-        class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden $
+    const destination = pattern.routeLongName || pattern.headsign || `${pattern.routeShortName || ''} - Direção ${pattern.directionId === '0' ? '1' : '2'}`;    return `        class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden $
           isSelected 
             ? 'bg-red-50 border-red-500 shadow-md' 
             : 'bg-white border-gray-200 hover:shadow-lg hover:border-red-400'
