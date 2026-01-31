@@ -226,7 +226,7 @@ async function carregarLinha() {
           shapeId: trip.shape_id,
           tripHeadsign: trip.trip_headsign,
           directionId: trip.direction_id,
-          routeShortName: numeroLinha
+          routeShortName: numeroLinha,
                       routeLongName: route.route_long_name,
         };
       }
