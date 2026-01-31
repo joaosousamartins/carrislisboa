@@ -1,17 +1,53 @@
 // Initialize map
 const map = L.map('map').setView([38.72, -9.14], 12);
 
-// Add OpenStreetMap tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// Tile layers
+const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+});
+
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles © Esri'
+});
+
+// Add default layer
+streetLayer.addTo(map);
 
 // State variables
 let routeLayers = [];
 let allPatterns = [];
 let selectedPatternId = null;
+let currentLayer = 'street';
 
-// Parse CSV text into array of objects
+// Layer switching
+document.addEventListener('DOMContentLoaded', () => {
+  const streetBtn = document.getElementById('street-layer-button');
+  const satelliteBtn = document.getElementById('satellite-layer-button');
+  
+  if (streetBtn && satelliteBtn) {
+    streetBtn.addEventListener('click', () => {
+      if (currentLayer !== 'street') {
+        map.removeLayer(satelliteLayer);
+        map.addLayer(streetLayer);
+        currentLayer = 'street';
+        streetBtn.className = 'flex items-center gap-2 p-2 rounded-lg shadow-lg bg-red-600 text-white';
+        satelliteBtn.className = 'flex items-center gap-2 p-2 rounded-lg shadow-lg bg-white text-gray-700 hover:bg-gray-100';
+      }
+    });
+    
+    satelliteBtn.addEventListener('click', () => {
+      if (currentLayer !== 'satellite') {
+        map.removeLayer(streetLayer);
+        map.addLayer(satelliteLayer);
+        currentLayer = 'satellite';
+        satelliteBtn.className = 'flex items-center gap-2 p-2 rounded-lg shadow-lg bg-red-600 text-white';
+        streetBtn.className = 'flex items-center gap-2 p-2 rounded-lg shadow-lg bg-white text-gray-700 hover:bg-gray-100';
+      }
+    });
+  }
+});
+
+// Parse CSV
 function parseCSV(text) {
   const lines = text.trim().split('\n');
   const headers = lines[0].split(',');
@@ -26,7 +62,7 @@ function parseCSV(text) {
   });
 }
 
-// Generate GPX content from coordinates
+// Generate GPX
 function generateGPX(coords, name) {
   let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
   gpx += '<gpx version="1.1" creator="CarrisLisboa" xmlns="http://www.topografix.com/GPX/1/1">\n';
@@ -40,7 +76,7 @@ function generateGPX(coords, name) {
   return gpx;
 }
 
-// Download GPX file
+// Download GPX
 function downloadGPX(coords, filename) {
   const gpxContent = generateGPX(coords, filename);
   const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
@@ -55,17 +91,18 @@ function downloadGPX(coords, filename) {
   URL.revokeObjectURL(url);
 }
 
-// Render pattern cards
+// Render patterns
 function renderPatterns() {
   const container = document.getElementById('patterns-container');
   
-  if (allPatterns.length === 0) {
-    container.innerHTML = '';
+  if (!container || allPatterns.length === 0) {
+    if (container) container.innerHTML = '';
     return;
   }
   
   container.innerHTML = allPatterns.map(pattern => {
     const isSelected = pattern.shapeId === selectedPatternId;
+    const lineName = pattern.routeShortName ? `Linha ${pattern.routeShortName}` : 'Linha';
     const destination = pattern.headsign || `Sentido ${pattern.directionId === '0' ? 'Ida' : 'Volta'}`;
     
     return `
@@ -80,7 +117,7 @@ function renderPatterns() {
         <div class="p-5">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div class="flex-grow">
-              <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">Destino</p>
+              <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">${lineName} - Destino</p>
               <p class="text-lg font-bold transition-colors ${
                 isSelected ? 'text-red-800' : 'text-gray-800 group-hover:text-red-700'
               }">
@@ -104,16 +141,15 @@ function renderPatterns() {
     `;
   }).join('');
   
-  // Add click listeners to pattern cards
+  // Add click listeners
   container.querySelectorAll('.pattern-card').forEach(card => {
     card.addEventListener('click', () => {
-      const shapeId = card.dataset.shapeId;
-      handlePatternClick(shapeId);
+      handlePatternClick(card.dataset.shapeId);
     });
   });
 }
 
-// Handle pattern card click
+// Handle pattern click
 function handlePatternClick(shapeId) {
   selectedPatternId = shapeId;
   renderPatterns();
@@ -133,13 +169,11 @@ function handleDownloadGPX(shapeId) {
   }
 }
 
-// Draw route on map
+// Draw route
 function drawRoute(coordinates, color = '#DC2626') {
-  // Clear existing routes
   routeLayers.forEach(layer => map.removeLayer(layer));
   routeLayers = [];
   
-  // Draw new route
   const polyline = L.polyline(coordinates, {
     color: color,
     weight: 4,
@@ -150,7 +184,7 @@ function drawRoute(coordinates, color = '#DC2626') {
   map.fitBounds(polyline.getBounds());
 }
 
-// Main search function
+// Main search
 async function carregarLinha() {
   const numeroLinha = document.getElementById('linha').value.trim();
   
@@ -160,19 +194,16 @@ async function carregarLinha() {
   }
   
   try {
-    // Load GTFS files
     const [routesText, tripsText, shapesText] = await Promise.all([
       fetch('gtfs/routes.txt').then(r => r.text()),
       fetch('gtfs/trips.txt').then(r => r.text()),
       fetch('gtfs/shapes.txt').then(r => r.text())
     ]);
     
-    // Parse CSV data
     const routes = parseCSV(routesText);
     const trips = parseCSV(tripsText);
     const shapes = parseCSV(shapesText);
     
-    // Find route
     const route = routes.find(r => r.route_short_name === numeroLinha);
     
     if (!route) {
@@ -182,7 +213,6 @@ async function carregarLinha() {
       return;
     }
     
-    // Get all trips for this route
     const routeTrips = trips.filter(t => t.route_id === route.route_id);
     
     if (routeTrips.length === 0) {
@@ -192,7 +222,6 @@ async function carregarLinha() {
       return;
     }
     
-    // Group by shape_id and get unique shapes with trip info
     const uniqueShapes = {};
     routeTrips.forEach(trip => {
       if (trip.shape_id && !uniqueShapes[trip.shape_id]) {
@@ -205,7 +234,6 @@ async function carregarLinha() {
       }
     });
     
-    // Load shape coordinates for each unique shape
     allPatterns = Object.values(uniqueShapes).map(shapeInfo => {
       const shapePoints = shapes
         .filter(s => s.shape_id === shapeInfo.shapeId)
@@ -224,13 +252,9 @@ async function carregarLinha() {
       return;
     }
     
-    // Clear selection
     selectedPatternId = null;
-    
-    // Render pattern cards
     renderPatterns();
     
-    // Draw all routes on map
     routeLayers.forEach(layer => map.removeLayer(layer));
     routeLayers = [];
     
