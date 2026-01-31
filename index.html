@@ -47,6 +47,7 @@
               type="text"
               placeholder="Ex: 799"
               class="flex-grow pl-4 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-150 ease-in-out"
+              onkeypress="if(event.key==='Enter') carregarLinha()"
             />
             <button
               onclick="carregarLinha()"
@@ -58,6 +59,11 @@
               <span>Pesquisar</span>
             </button>
           </div>
+        </div>
+        
+        <!-- Patterns Container (sentidos) -->
+        <div id="patterns-container" class="grid grid-cols-1 gap-4 mb-8">
+          <!-- Pattern cards will be inserted here by JS -->
         </div>
         
         <!-- Map Container -->
