@@ -107,7 +107,7 @@ function renderPatterns() {
     
     return `
       <div 
-        class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden ${
+        class="pattern-card group rounded-xl border shadow-sm transition-all duration-300 ease-in-out cursor-pointer overflow-hidden $
           isSelected 
             ? 'bg-red-50 border-red-500 shadow-md' 
             : 'bg-white border-gray-200 hover:shadow-lg hover:border-red-400'
