@@ -54,7 +54,7 @@
                         <h2 id="route-display-name" class="text-lg font-black leading-tight text-slate-800"></h2>
                         <span id="route-display-id" class="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded uppercase tracking-wider"></span>
                     </div>
-                    <h3 class="font-black mb-3 text-[10px] uppercase text-slate-300 tracking-[0.2em] border-b pb-2">Destinos Disponíveis</h3>
+                    <h3 class="font-black mb-3 text-[10px] uppercase text-slate-300 tracking-[0.2em] border-b pb-2">Variações de Percurso</h3>
                     <div id="trips-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar"></div>
                 </div>
             </div>
@@ -110,6 +110,7 @@
             
             if (!route) { alert("Linha não encontrada."); return; }
 
+            // Atualiza o cabeçalho do painel com o LONG NAME
             ui.routeName.innerText = route.route_long_name;
             ui.routeId.innerText = `Linha ${route.route_short_name}`;
 
@@ -119,15 +120,14 @@
             const seen = new Set();
             routeTrips.forEach(t => { if(!seen.has(t.shape_id)) { seen.add(t.shape_id); uniqueShapes.push(t); }});
 
-            renderTrips(uniqueShapes, route.route_long_name);
+            renderTrips(uniqueShapes);
         }
 
-        function renderTrips(trips, longName) {
+        function renderTrips(trips) {
             ui.results.classList.remove('hidden');
             ui.tripsList.innerHTML = '';
             trips.forEach(trip => {
-                // Aqui usamos o route_long_name se o trip_headsign for vazio
-                const title = trip.trip_headsign || longName;
+                const title = trip.trip_headsign || 'Sentido Único';
                 const div = document.createElement('div');
                 div.className = "p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-yellow-400 transition-all group";
                 div.innerHTML = `
