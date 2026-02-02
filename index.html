@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Carris Lisboa - Explorer Pro</title>
+    <title>Carris Lisboa - Sentido Inteligente</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
@@ -30,11 +29,11 @@
                 </div>
                 <div>
                     <h1 class="text-3xl font-black tracking-tighter italic uppercase leading-none">Carris <span class="text-yellow-500">Lisboa</span></h1>
-                    <p class="text-xs text-slate-400 font-bold tracking-[0.3em] uppercase mt-1">GTFS Live Mapping</p>
+                    <p class="text-xs text-slate-400 font-bold tracking-[0.3em] uppercase mt-1">Smart Direction Mapping</p>
                 </div>
             </div>
-            <div id="loader" class="hidden text-xs font-black text-yellow-700 bg-yellow-100 px-4 py-2 rounded-full border border-yellow-200 animate-pulse">
-                <div class="loading-spinner"></div> A LER GTFS...
+            <div id="loader" class="hidden text-xs font-black text-yellow-700 bg-yellow-100 px-4 py-2 rounded-full border border-yellow-200">
+                <div class="loading-spinner"></div> A PROCESSAR...
             </div>
         </header>
 
@@ -43,7 +42,7 @@
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                     <label class="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Número da Linha</label>
                     <div class="flex gap-2">
-                        <input id="route-input" type="text" placeholder="Ex: 728" 
+                        <input id="route-input" type="text" placeholder="Ex: 799" 
                             class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-yellow-400 outline-none transition-all font-bold text-xl" />
                         <button id="search-btn" class="bg-slate-900 text-white px-6 py-3 rounded-2xl hover:bg-black transition-all font-black">OK</button>
                     </div>
@@ -54,7 +53,7 @@
                         <h2 id="route-display-name" class="text-lg font-black leading-tight text-slate-800"></h2>
                         <span id="route-display-id" class="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded uppercase tracking-wider"></span>
                     </div>
-                    <h3 class="font-black mb-3 text-[10px] uppercase text-slate-300 tracking-[0.2em] border-b pb-2">Variações de Percurso</h3>
+                    <h3 class="font-black mb-3 text-[10px] uppercase text-slate-300 tracking-[0.2em] border-b pb-2">Sentidos Detetados</h3>
                     <div id="trips-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar"></div>
                 </div>
             </div>
@@ -110,34 +109,53 @@
             
             if (!route) { alert("Linha não encontrada."); return; }
 
-            // Atualiza o cabeçalho do painel com o LONG NAME
             ui.routeName.innerText = route.route_long_name;
             ui.routeId.innerText = `Linha ${route.route_short_name}`;
 
             const trips = await fetchGTFS('trips.txt');
             const routeTrips = trips.filter(t => t.route_id === route.route_id);
+            
             const uniqueShapes = [];
             const seen = new Set();
             routeTrips.forEach(t => { if(!seen.has(t.shape_id)) { seen.add(t.shape_id); uniqueShapes.push(t); }});
 
-            renderTrips(uniqueShapes);
+            renderTrips(uniqueShapes, route);
         }
 
-        function renderTrips(trips) {
+        function renderTrips(trips, route) {
             ui.results.classList.remove('hidden');
             ui.tripsList.innerHTML = '';
+
+            // Lógica de Sentido baseada no route_long_name (Ex: "A - B")
+            const names = route.route_long_name.split(' - ');
+            const origin = names[0] || "Origem";
+            const destination = names[1] || "Destino";
+
             trips.forEach(trip => {
-                const title = trip.trip_headsign || 'Sentido Único';
+                let finalTitle = trip.trip_headsign;
+                
+                // Se o shape_id contém ASC ou DESC, ou se o trip_headsign for genérico
+                // Vamos tentar inferir o destino real
+                if (trip.shape_id.includes('ASC')) {
+                    finalTitle = `Sentido: ${destination}`;
+                } else if (trip.shape_id.includes('DESC')) {
+                    finalTitle = `Sentido: ${origin}`;
+                } else if (!finalTitle) {
+                    finalTitle = route.route_long_name;
+                }
+
                 const div = document.createElement('div');
                 div.className = "p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-yellow-400 transition-all group";
                 div.innerHTML = `
-                    <div class="font-black text-[11px] mb-3 uppercase text-slate-600 group-hover:text-slate-900 leading-tight">${title}</div>
+                    <div class="font-black text-[11px] mb-1 uppercase text-slate-400">Direção</div>
+                    <div class="font-bold text-[13px] mb-3 text-slate-800 leading-tight">${finalTitle}</div>
                     <div class="flex gap-2">
                         <button class="view-btn flex-[2] bg-slate-900 text-white text-[10px] font-black py-2.5 rounded-xl hover:bg-yellow-500 hover:text-black transition-all uppercase italic">Mapear</button>
                         <button class="gpx-btn flex-1 bg-white text-slate-400 border border-slate-200 text-[10px] font-black py-2.5 rounded-xl hover:text-green-600 hover:border-green-600 transition-all uppercase">GPX</button>
                     </div>`;
+                
                 div.querySelector('.view-btn').onclick = () => drawRoute(trip.shape_id);
-                div.querySelector('.gpx-btn').onclick = () => downloadGPX(trip.shape_id, title);
+                div.querySelector('.gpx-btn').onclick = () => downloadGPX(trip.shape_id, `${route.route_short_name}_${finalTitle}`);
                 ui.tripsList.appendChild(div);
             });
         }
@@ -150,35 +168,32 @@
                 .map(p => [parseFloat(p.shape_pt_lat), parseFloat(p.shape_pt_lon)]);
 
             activeLayers.clearLayers();
-
             const polyline = L.polyline(points, { color: '#fbbf24', weight: 6, opacity: 0.9, lineCap: 'round' }).addTo(activeLayers);
 
             L.polylineDecorator(polyline, {
                 patterns: [{
                     offset: '10%', repeat: '80px',
-                    symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: '#000', weight: 3, opacity: 1 }})
+                    symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: '#000', weight: 3 }})
                 }]
             }).addTo(activeLayers);
 
             L.circleMarker(points[0], { radius: 7, fillColor: "#3b82f6", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(activeLayers);
-            
-            const lastPoint = points[points.length - 1];
-            L.marker(lastPoint, { 
+            L.marker(points[points.length - 1], { 
                 icon: L.divIcon({ html: '<div class="text-xl">🏁</div>', className: 'dummy', iconSize: [24, 24], iconAnchor: [12, 24] }) 
             }).addTo(activeLayers);
 
             map.fitBounds(polyline.getBounds(), { padding: [60, 60] });
         }
 
-        async function downloadGPX(shapeId, title) {
+        async function downloadGPX(shapeId, fileName) {
             const shapes = await fetchGTFS('shapes.txt');
             const coords = shapes.filter(s => s.shape_id === shapeId).sort((a, b) => parseInt(a.shape_pt_sequence) - parseInt(b.shape_pt_sequence));
-            let gpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="CarrisViewer" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${title}</name><trkseg>`;
+            let gpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="CarrisViewer" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${fileName}</name><trkseg>`;
             coords.forEach(p => { gpx += `\n<trkpt lat="${p.shape_pt_lat}" lon="${p.shape_pt_lon}"></trkpt>`; });
             gpx += `\n</trkseg></trk></gpx>`;
             const blob = new Blob([gpx], { type: 'application/gpx+xml' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `Carris_${shapeId}.gpx`; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = `${fileName.replace(/[/\\?%*:|"<>\s]/g, '_')}.gpx`; a.click();
         }
 
         ui.btn.onclick = handleSearch;
